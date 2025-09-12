@@ -117,7 +117,7 @@ def scrape_first_page(url: str = "https://quotes.toscrape.com/", proxy_url: Opti
     return data
 
 
-def save_to_txt(items: List[Dict[str, str]], path: str = "res_quotes2.txt") -> None:
+def save_to_txt(items: List[Dict[str, str]], path: str = "resposta.txt") -> None:
     with open(path, "w", encoding="utf-8") as f:
         for obj in items:
             f.write(json.dumps(obj, ensure_ascii=False) + "\n")
@@ -184,6 +184,6 @@ if __name__ == "__main__":
         print(f"[INFO] Proxy detectado em ambiente: {proxy_env}")
     results = scrape_all_pages("https://quotes.toscrape.com/", proxy_url=proxy_env)
     print(f"[INFO] Total coletado: {len(results)} itens")
-    save_to_txt(results, "res_quotes2.txt")
+    save_to_txt(results, "resposta.txt")
 
 
