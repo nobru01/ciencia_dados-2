@@ -124,12 +124,65 @@ def save_to_txt(items: List[Dict[str, str]], path: str = "res_quotes2.txt") -> N
     print(f"[INFO] Arquivo salvo em: {path}")
 
 
+def scrape_all_pages(start_url: str = "https://quotes.toscrape.com/", proxy_url: Optional[str] = None) -> List[Dict[str, str]]:
+    user_agent = _random_user_agent()
+    if proxy_url:
+        print(f"[INFO] Usando proxy: {proxy_url}")
+    print(f"[INFO] Iniciando navegador com user-agent: {user_agent}")
+    driver = _build_chrome(user_agent, proxy_url)
+    wait = WebDriverWait(driver, 15)
+
+    all_items: List[Dict[str, str]] = []
+    current_url = start_url
+
+    try:
+        while True:
+            print(f"[INFO] Acessando URL: {current_url}")
+            driver.get(current_url)
+
+            wait.until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='quote']")))
+            quotes = driver.find_elements(By.XPATH, "//div[@class='quote']")
+            print(f"[INFO] Quantidade de citações encontradas nesta página: {len(quotes)}")
+
+            for idx, q in enumerate(quotes, start=1):
+                try:
+                    quote_text = q.find_element(By.XPATH, ".//span[@class='text']").text
+                    author = q.find_element(By.XPATH, ".//small[@class='author']").text
+                    tag_elements = q.find_elements(By.XPATH, ".//div[@class='tags']/a[@class='tag']")
+                    tags = [t.text for t in tag_elements]
+                    all_items.append({"quote": quote_text, "author": author, "tags": tags})
+                    print(f"[OK] Citação de '{author}' coletada")
+                except NoSuchElementException:
+                    print("[WARN] Falha ao coletar uma citação desta página")
+
+            # Tenta ir para a próxima página
+            try:
+                next_link = driver.find_element(By.XPATH, "//li[@class='next']/a")
+                next_href = next_link.get_attribute("href")
+                if not next_href:
+                    # alguns sites usam href relativo
+                    next_href = next_link.get_attribute("href") or next_link.get_attribute("data-href")
+                current_url = next_href if next_href else driver.current_url.rstrip('/') + "/page/2/"
+                print(f"[INFO] Avançando para a próxima página: {current_url}")
+            except NoSuchElementException:
+                print("[INFO] Não há mais páginas. Coleta finalizada.")
+                break
+
+    except TimeoutException:
+        print("[ERRO] Tempo de espera excedido ao carregar os elementos da página.")
+    finally:
+        driver.quit()
+        print("[INFO] Navegador encerrado.")
+
+    return all_items
+
+
 if __name__ == "__main__":
-    print("[INFO] Iniciando coleta da primeira página de quotes.toscrape.com")
+    print("[INFO] Iniciando coleta de todas as páginas de quotes.toscrape.com")
     proxy_env = os.environ.get("PROXY_URL") or os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY")
     if proxy_env:
         print(f"[INFO] Proxy detectado em ambiente: {proxy_env}")
-    results = scrape_first_page("https://quotes.toscrape.com/", proxy_url=proxy_env)
+    results = scrape_all_pages("https://quotes.toscrape.com/", proxy_url=proxy_env)
     print(f"[INFO] Total coletado: {len(results)} itens")
     save_to_txt(results, "res_quotes2.txt")
 
